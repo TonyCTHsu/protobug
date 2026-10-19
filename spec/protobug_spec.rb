@@ -418,6 +418,33 @@ RSpec.describe Protobug do
     end
   end
 
+  it "passes no options to JSON that json 3 removed" do
+    # json 3 raises ArgumentError for unknown options, while the json 2 the
+    # dev bundle pins silently ignores them. Reject the removed options the way
+    # json 3 does. If the removed options ever come back, this spec fails.
+    removed = %i[allow_blank create_additions allow_infinity]
+    allow(JSON).to receive(:parse).and_wrap_original do |m, source, **opts|
+      raise ArgumentError, "unknown keywords: #{(opts.keys & removed).join(", ")}" if (opts.keys & removed).any?
+
+      m.call(source, **opts)
+    end
+    allow(JSON).to receive(:generate).and_wrap_original do |m, obj, **opts|
+      raise ArgumentError, "unknown keyword: #{(opts.keys & removed).join(", ")}" if (opts.keys & removed).any?
+
+      m.call(obj, **opts)
+    end
+
+    c = Class.new do
+      extend Protobug::Message
+      self.full_name = "test.JsonNoRemovedOptions"
+      optional 1, :a, type: :string
+    end
+
+    decoded = c.decode_json('{"a":"hi"}', registry: nil)
+    expect(decoded.a).to eq("hi")
+    expect(decoded.to_json).to eq('{"a":"hi"}')
+  end
+
   it "round-trips double NaN and float -Infinity through JSON and coerces integers to Float" do
     c = Class.new do
       extend Protobug::Message
