@@ -419,9 +419,11 @@ RSpec.describe Protobug do
   end
 
   it "passes no options to JSON that json 3 removed" do
-    # json 3 raises ArgumentError for unknown options, while the json 2 the
-    # dev bundle pins silently ignores them. Reject the removed options the way
-    # json 3 does. If the removed options ever come back, this spec fails.
+    # The dev lock resolves json 3, so the suite already crashes if the
+    # removed options return. The lock is not the only world json runs in:
+    # outside the bundle Ruby resolves the default gem, which is still json 2
+    # and silently ignores those names. Reject them the way json 3 does, so
+    # this spec fails wherever json 2 resolves.
     removed = %i[allow_blank create_additions allow_infinity]
     allow(JSON).to receive(:parse).and_wrap_original do |m, source, **opts|
       raise ArgumentError, "unknown keywords: #{(opts.keys & removed).join(", ")}" if (opts.keys & removed).any?
